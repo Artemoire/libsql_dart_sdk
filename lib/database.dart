@@ -1,9 +1,9 @@
 import 'dart:ffi';
 
-import 'package:libsql_dart_sdk/native_libsql_api.dart';
+import 'package:libsql_dart_sdk/native/native_api.dart';
 
 class Database implements Finalizable {
-  static final _finalizer = NativeFinalizer(nativeDatabaseFreeAddress.cast());
+  static final _finalizer = NativeFinalizer(nativeDbFreeAddress.cast());
 
   final Pointer<NativeDatabase> _db;
   bool _closed = false;
@@ -13,7 +13,7 @@ class Database implements Finalizable {
     String? authToken,
     String? encryptionKey,
     String? encryptionCipher,
-  }) : _db = nativeLibsqlOpen(dbPath, authToken ?? "",
+  }) : _db = nativeDbOpen(dbPath, authToken ?? "",
             encryptionCipher ?? "aes256cbc", encryptionKey ?? "") {
     _finalizer.attach(this, _db.cast(), detach: this);
   }
@@ -23,7 +23,7 @@ class Database implements Finalizable {
       throw StateError('The database has been closed.');
     }
     
-    nativeLibsqlExecSync(_db, sql);
+    nativeDbExec(_db, sql);
   }
 
   void close() {
@@ -31,8 +31,8 @@ class Database implements Finalizable {
       return;
     }
     _closed = true;
-    nativeLibsqlClose(_db);
+    nativeDbClose(_db);
     _finalizer.detach(this);
-    nativeDatabaseFree(_db);
+    nativeDbFree(_db);
   }
 }

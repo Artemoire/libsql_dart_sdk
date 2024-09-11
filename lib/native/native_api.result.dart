@@ -1,6 +1,4 @@
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
+part of 'native_api.dart';
 
 final class NativeHandleResult extends Struct {
   @Bool()
