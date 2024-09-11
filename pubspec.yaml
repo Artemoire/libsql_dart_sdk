@@ -1,0 +1,12 @@
+name: libsql_dart_sdk
+description: Libsql dart bindings
+version: 0.1.0
+publish_to: none
+repository: https://github.com/Artemoire/libsql_dart_sdk
+
+environment:
+  sdk: ^3.5.2
+
+dependencies:
+  path: ^1.8.0
+  ffi: ^2.1.3

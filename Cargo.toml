@@ -1,0 +1,12 @@
+[package]
+name = "libsql-dart-sdk"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libsql = { git = "https://github.com/tursodatabase/libsql/", rev = "42a6f1bcd47df94909dc91e2b8811d1dcd9043dc", features = ["encryption"] }
+once_cell = "1.18.0"
+tokio = { version = "1.29.1", features = [ "rt-multi-thread" ] }
