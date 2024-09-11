@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 // use tracing::trace;
 
 use crate::errors::{map_database_closed_error, map_libsql_error};
-use crate::runtime;
+use crate::{map_dart_void_result, runtime, DartVoidResultCallback};
 // use crate::Statement;
 
 pub(crate) struct Database {
@@ -67,10 +67,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn exec_async<F>(&self, sql: String, cb: F) -> Result<(), String>
-    where
-        F: Fn(Result<(), String>) + Send + 'static,
-    {
+    pub fn exec_async(&self, sql: String, cb: DartVoidResultCallback) -> Result<(), String> {
         // trace!("Executing SQL statement (async): {}", sql);
         let conn = match self.get_conn() {
             Some(conn) => conn,
@@ -78,14 +75,10 @@ impl Database {
         };
         let rt = runtime()?;
         rt.spawn(async move {
-            match conn.lock().await.execute_batch(&sql).await {
-                Ok(_) => {
-                    cb(Ok(()));
-                }
-                Err(err) => {
-                    cb(Err(map_libsql_error::<()>(err).unwrap_err()));
-                }
-            }
+            let res = conn.lock().await.execute_batch(&sql).await
+                .map(|_| ())
+                .map_err(|err| map_libsql_error::<()>(err).unwrap_err());
+            cb(map_dart_void_result(res));
         });
         Ok(())
     }

@@ -34,20 +34,10 @@ pub struct DartVoidResult {
 
 type DartVoidResultCallback = extern "C" fn(DartVoidResult);
 
-fn wrap_dart_void_callback(callback: DartVoidResultCallback) -> impl Fn(Result<(), String>) {
-    move |result| {
-        let dart_result = match result {
-            Ok(()) => DartVoidResult {
-                is_error: false,
-                error_message: std::ptr::null(),
-            },
-            Err(err) => DartVoidResult {
-                is_error: true,
-                error_message: CString::new(err).expect("CString::new failed").into_raw(),
-            },
-        };
-
-        callback(dart_result);
+fn map_dart_void_result(res: Result<(), String>) -> DartVoidResult{
+    match res {
+        Ok(_) => DartVoidResult {is_error: false, error_message: std::ptr::null()},
+        Err(err) => DartVoidResult {is_error:true, error_message:CString::new(err).expect("CString::new failed").into_raw()}
     }
 }
 
@@ -116,11 +106,10 @@ pub extern "C" fn _dapi_libsql_exec_async(
     cb: DartVoidResultCallback,
 ) {
     let arc_ptr: *mut Arc<Database> = db_ptr as *mut Arc<Database>;
-    let wrapped_cb = wrap_dart_void_callback(cb);
 
     unsafe {
         let db = (*arc_ptr).clone();
-        let _ = db.exec_async(c_str_to_str(sql), wrapped_cb).map_err(|err| {
+        let _ = db.exec_async(c_str_to_str(sql), cb).map_err(|err| {
             cb(DartVoidResult {
                 is_error: true,
                 error_message: CString::new(err).expect("CString::new failed").into_raw(),
