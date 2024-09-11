@@ -22,8 +22,16 @@ class Database implements Finalizable {
     if (_closed) {
       throw StateError('The database has been closed.');
     }
-    
+
     nativeDbExec(_db, sql);
+  }
+
+  Future<void> execAsync(String sql) {
+    if (_closed) {
+      throw StateError('The database has been closed.');
+    }
+
+    return nativeDbExecAsync(_db, sql);
   }
 
   void close() {

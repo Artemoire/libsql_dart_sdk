@@ -67,6 +67,29 @@ impl Database {
         Ok(())
     }
 
+    pub fn exec_async<F>(&self, sql: String, cb: F) -> Result<(), String>
+    where
+        F: Fn(Result<(), String>) + Send + 'static,
+    {
+        // trace!("Executing SQL statement (async): {}", sql);
+        let conn = match self.get_conn() {
+            Some(conn) => conn,
+            None => map_database_closed_error()?,
+        };
+        let rt = runtime()?;
+        rt.spawn(async move {
+            match conn.lock().await.execute_batch(&sql).await {
+                Ok(_) => {
+                    cb(Ok(()));
+                }
+                Err(err) => {
+                    cb(Err(map_libsql_error::<()>(err).unwrap_err()));
+                }
+            }
+        });
+        Ok(())
+    }
+
     pub fn close(&self) {
         // trace!("Closing database");
         self.conn.replace(None);

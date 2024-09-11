@@ -32,6 +32,25 @@ pub struct DartVoidResult {
     pub error_message: *const c_char,
 }
 
+type DartVoidResultCallback = extern "C" fn(DartVoidResult);
+
+fn wrap_dart_void_callback(callback: DartVoidResultCallback) -> impl Fn(Result<(), String>) {
+    move |result| {
+        let dart_result = match result {
+            Ok(()) => DartVoidResult {
+                is_error: false,
+                error_message: std::ptr::null(),
+            },
+            Err(err) => DartVoidResult {
+                is_error: true,
+                error_message: CString::new(err).expect("CString::new failed").into_raw(),
+            },
+        };
+
+        callback(dart_result);
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn _dapi_db_box_from_raw(ptr: *mut c_void) {
     let arc_ptr: *mut Arc<Database> = ptr as *mut Arc<Database>;
@@ -69,9 +88,12 @@ pub extern "C" fn _dapi_libsql_open(
 }
 
 #[no_mangle]
-pub extern "C" fn _dapi_libsql_exec_sync(db_ptr: *mut c_void, sql: *const c_char) -> DartVoidResult {
+pub extern "C" fn _dapi_libsql_exec_sync(
+    db_ptr: *mut c_void,
+    sql: *const c_char,
+) -> DartVoidResult {
     let arc_ptr: *mut Arc<Database> = db_ptr as *mut Arc<Database>;
-    
+
     unsafe {
         let db = (*arc_ptr).clone();
         db.exec_sync(c_str_to_str(sql)).map_or_else(
@@ -88,9 +110,29 @@ pub extern "C" fn _dapi_libsql_exec_sync(db_ptr: *mut c_void, sql: *const c_char
 }
 
 #[no_mangle]
+pub extern "C" fn _dapi_libsql_exec_async(
+    db_ptr: *mut c_void,
+    sql: *const c_char,
+    cb: DartVoidResultCallback,
+) {
+    let arc_ptr: *mut Arc<Database> = db_ptr as *mut Arc<Database>;
+    let wrapped_cb = wrap_dart_void_callback(cb);
+
+    unsafe {
+        let db = (*arc_ptr).clone();
+        let _ = db.exec_async(c_str_to_str(sql), wrapped_cb).map_err(|err| {
+            cb(DartVoidResult {
+                is_error: true,
+                error_message: CString::new(err).expect("CString::new failed").into_raw(),
+            });            
+        });
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn _dapi_libsql_close(db_ptr: *mut c_void) {
     let arc_ptr: *mut Arc<Database> = db_ptr as *mut Arc<Database>;
-    
+
     unsafe {
         let db = (*arc_ptr).clone();
         db.close();
